@@ -1,0 +1,22 @@
+{
+  "name": "flock-energy-engineering-task-home",
+  "version": "1.0.0",
+  "description": "��#\u0000 \u0000F\u0000l\u0000o\u0000c\u0000k\u0000-\u0000E\u0000n\u0000e\u0000r\u0000g\u0000y\u0000-\u0000T\u0000a\u0000s\u0000k\u0000-\u0000H\u0000o\u0000m\u0000e\u0000\r\u0000 \u0000",
+  "main": "app.js",
+  "scripts": {
+    "script": "node app.js"
+  },
+  "author": "saumya",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "body-parser": "^2.3.0",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "joi": "^18.2.3",
+    "json": "^11.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.7.4"
+  }
+}
