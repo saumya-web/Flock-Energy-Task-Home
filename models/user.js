@@ -57,6 +57,7 @@ userSchema.methods.generateRefreshToken = function( ){
    {
     expiryIn:REFRESH_TOKEN_EXPIRY
    })
-}
+    }
+
 const User = mongoose.model(user,'userSchema')
 module.exports = User
