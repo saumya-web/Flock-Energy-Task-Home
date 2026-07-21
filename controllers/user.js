@@ -1,67 +1,68 @@
-const User = required('../models/User')
-const ApiResponse = require('../utils/ApiResponse')
-const ApiError = require('../utils/ApiError')
+const User = require("../models/user")
+const ApiResponse = require("../utils/ApiResponse")
+const ApiError = require("../utils/ApiError")
 
-const generateAccessAndRefreshToken = async function(adminId){
-    const data = await User.find(adminId)
-
-    if(!data){
-        throw new Error(res, 400,'server not found')
+const signUp = async function (req, res) {
+  try {
+    const { name, emailId, password, role } = req.body
+    if (!name || !emailId || !password) {
+      return res.status(400).json({ success: false, message: "name, emailId, and password are required" })
     }
-    const accessToken = await data.accessToken
-    const refreshToken = await data .refreshToken
 
-    data.refreshToken = refreshToken
-    await data.save({validateBeforeSave: false})
-    return {accessToken , refreshToken}
-}
+    const existingUser = await User.findOne({ emailId: emailId.toLowerCase().trim() })
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: "User already exists" })
+    }
 
-const signUp = async function(){
-    try{
-    const {user,emailId,password} = req.body
-
-    if(!user || emailId || password){
-        return ApiError(res , 400, 'data not found')}
-
-    const existUser = await User.findOne({$or:[{name},{emailId}]})   
-    const result =await User.create({
-        name,
-        emailId,
-        password
+    const createdUser = await User.create({
+      name: name.trim(),
+      emailId: emailId.toLowerCase().trim(),
+      password,
+      role: role || "user",
     })
-    return ApiResponse(res, 201 ,result ,'created successfully')
+
+    return new ApiResponse(res, 201, { id: createdUser._id, name: createdUser.name, emailId: createdUser.emailId, role: createdUser.role }, "User created successfully")
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ success: false, message: "Internal server error" })
+  }
 }
-catch(err){
-    return ApiError(res , 500 , 'internal server error')
-}}
 
-
-const loginUp = async function(){
-    try{
-    const {emailId,password} = req.body
-
-    if(!emailId || password){
-         return ApiError(res , 400, 'data not found')
+const loginUp = async function (req, res) {
+  try {
+    const { emailId, password } = req.body
+    if (!emailId || !password) {
+      return res.status(400).json({ success: false, message: "emailId and password are required" })
     }
-    const loginUser = await User.findOne({emailId})  
 
-    const isMatch = await loginUser.comparedPassword(Password)
-     if(!isMatch){
-        return ApiError(res , 400, 'data not found')
+    const loginUser = await User.findOne({ emailId: emailId.toLowerCase().trim() })
+    if (!loginUser) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" })
     }
-     
-    const {refreshToken ,accessToken} = await generateAccessAndRefreshToken(loginUser._id)
-    
-    const loggedUser = await User.findById(loginUser).select('-password , -refreshToken')
 
-    return ApiResponse(res, 200 ,{
-        log =loginUser,
-        refreshToken,
-        accessToken
-    },'created successfully')
+    const isMatch = await loginUser.comparePassword(password)
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" })
+    }
+
+    const accessToken = loginUser.generateAccessToken()
+    const refreshToken = loginUser.generateRefreshToken()
+
+    loginUser.refreshToken = refreshToken
+    await loginUser.save({ validateBeforeSave: false })
+
+    const userData = {
+      id: loginUser._id,
+      name: loginUser.name,
+      emailId: loginUser.emailId,
+      role: loginUser.role,
+    }
+
+    return new ApiResponse(res, 200, { user: userData, accessToken, refreshToken }, "Login successful")
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ success: false, message: "Internal server error" })
+  }
 }
-catch(err){
-    return ApiError(res , 500 , 'internal server error')
-}}
 
-module.exports = {signUp , loginUp}
+module.exports = { signUp, loginUp }

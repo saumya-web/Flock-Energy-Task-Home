@@ -1,63 +1,73 @@
 const mongoose = require("mongoose")
-const { type } = require("node:os")
-const { StringDecoder } = require("node:string_decoder")
-const userSchema = new mongoose.SchemaType({
-    name :{
-    type:String,
-    required: true
-    },
-    emailId:{
-    type:String
-    },
-    password:{
-    type:String
-    },
-    role:{
-        type:String,
-        enum:['admin','user']
-    }
-})
-userSchema.pre('save',async function(){
-if(!this.Modified(this.password))
-return;
+const bcrypt = require("bcrypt")
+const jwt = require("jsonwebtoken")
 
-try{
-const hashedPassword = await bcrypt.hash(this.password,10)
-this.password = hashedPassword
-return ;
-}
-catch (err){
-  return next(err) 
-}
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  emailId: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+  },
+  password: {
+    type: String,
+    required: true,
+  },
+  role: {
+    type: String,
+    enum: ["admin", "user"],
+    default: "user",
+  },
+  refreshToken: {
+    type: String,
+  },
 })
 
-userSchema.methods.comparedPassword = async function(candidatePassword){
-return await bcrypt.hash(this.password,10)
-return next()
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next()
+
+  try {
+    const hashedPassword = await bcrypt.hash(this.password, 10)
+    this.password = hashedPassword
+    next()
+  } catch (err) {
+    next(err)
+  }
+})
+
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password)
 }
 
-userSchema.methods.generateAccessToken = function( ){
-   return await jwt .sign({ 
-    id = this.id,
-    name = this.name,
-    emailId =this.emailId,
-    password = this.password,
-    role = this.role
-  },
-   process.env.ACCESS_TOKEN_SECRET,
-   {
-    expiryIn:ACCESS_TOKEN_EXPIRY
-   })
-}
-userSchema.methods.generateRefreshToken = function( ){
-   return await jwt .sign({ 
-    id = this.id,
-  },
-   process.env.REFRESH_TOKEN_SECRET,
-   {
-    expiryIn:REFRESH_TOKEN_EXPIRY
-   })
+userSchema.methods.generateAccessToken = function () {
+  return jwt.sign(
+    {
+      id: this._id,
+      name: this.name,
+      emailId: this.emailId,
+      role: this.role,
+    },
+    process.env.ACCESS_TOKEN_SECRET || "secret",
+    {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1d",
     }
+  )
+}
 
-const User = mongoose.model(user,'userSchema')
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign(
+    { id: this._id },
+    process.env.REFRESH_TOKEN_SECRET || "refresh-secret",
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "7d",
+    }
+  )
+}
+
+const User = mongoose.models.User || mongoose.model("User", userSchema)
 module.exports = User
