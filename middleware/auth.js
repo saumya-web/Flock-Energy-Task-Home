@@ -1,26 +1,46 @@
-const jwt = require("jsonwebtoken");
-const ApiError = require("../utils/ApiError")
-const ApiResponse = require('../utils/ApiResponse');
-const { verify } = require("node:crypto");
+const jwt = require("jsonwebtoken")
 
-const verifyJWT = (req,res,next)=>{
-    const authHeader = req.header.authorization()
+const verifyJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Authorization token missing" })
+  }
 
-    const Token = authHeader.split(" ")[1]
-    if(!Token){
-        return ApiError(res, 400, 'data not found')
-    }
-    const decoded =jwt.verify(process.env.Access_Token_SECRET,Token)
+  const token = authHeader.split(" ")[1]
+  try {
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET || "secret")
     req.user = decoded
     return next()
+  } catch (err) {
+    return res.status(401).json({ success: false, message: "Invalid or expired token" })
+  }
 }
 
-const generateToken = async function (userId){
-    return jwt.sign({
-            name = userId.name,
-            emailId = userId.emailId,
-            password = userId.password
-   },
-   process.env.ACCESS_TOKEN_EXPIRY,{expiryIn:'1d'})
+const authRole = (requiredRole) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "User not authenticated" })
+    }
+    if (req.user.role !== requiredRole) {
+      return res.status(403).json({ success: false, message: "Access denied" })
+    }
+    return next()
+  }
 }
-module.exports = {generateToken , verifyJWT}
+
+const generateToken = async function (user) {
+  return jwt.sign(
+    {
+      id: user._id,
+      name: user.name,
+      emailId: user.emailId,
+      role: user.role,
+    },
+    process.env.ACCESS_TOKEN_SECRET || "secret",
+    {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1d",
+    }
+  )
+}
+
+module.exports = { generateToken, verifyJWT, authRole }
